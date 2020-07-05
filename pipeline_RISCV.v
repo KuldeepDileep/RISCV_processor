@@ -2,13 +2,13 @@ module pipeline_RISCV(
 	input clk, reset
 );
 
-wire [63:0] PC_Out, PC_Out_IR1, PC_Out_IR2, readData1, readData1_IR2, readData2_IR2, readData2_IR3, readData2, muxOut1, muxOut2, muxOut3, Result, Result_IR3, Read_Data, imm_data, imm_data_IR2, out1, out2, out_IR3, Read_Data_IR4, Mem_Addr_IR4;
+wire [63:0] dataout2, dataout3, PC_Out, PC_Out_IR1, PC_Out_IR2, readData1, readData1_IR2, readData2_IR2, readData2_IR3, readData2, muxOut1, muxOut2, muxOut3, Result, Result_IR3, Read_Data, imm_data, imm_data_IR2, out1, out2, out_IR3, Read_Data_IR4, Mem_Addr_IR4;
 wire [31:0] Instruction, Instruction_IR1;
 wire [6:0] opcode, funct7;
-wire [4:0] rs1, rs2, rd, instb_IR4, instb_IR2, instb_IR3;
+wire [4:0] rs1, rs2, rd, instb_IR4, instb_IR2, instb_IR3, rs1_IR2, rs2_IR2;
 wire [3:0] Operation, insta_IR2;
 wire [2:0] funct3;
-wire [1:0] ALUOp, ALUOp_IR2;
+wire [1:0] ALUOp, ALUOp_IR2, forwardA, forwardB;
 wire g, Branch, Branch_IR2, Branch_IR3, MemRead, MemRead_IR2, MemRead_IR3, MemtoReg, MemtoReg_IR2, MemtoReg_IR3, MemtoReg_IR4, MemWrite, MemWrite_IR2, MemWrite_IR3, ALUSrc, ALUSrc_IR2, RegWrite, RegWrite_IR2, RegWrite_IR3, RegWrite_IR4, zero, zero_IR3;
 
 PC counter(
@@ -99,6 +99,8 @@ IR2 R2(
 	.imm_data(imm_data),
 	.insta_IR1({Instruction_IR1[30], Instruction_IR1[14:12]}),
 	.instb_IR1(rd),
+	.rs1(rs1),
+	.rs2(rs2),
 	.RegWrite_IR2(RegWrite_IR2), 
 	.Branch_IR2(Branch_IR2), 
 	.MemRead_IR2(MemRead_IR2), 
@@ -111,15 +113,37 @@ IR2 R2(
 	.readData2_IR2(readData2_IR2),
 	.imm_data_IR2(imm_data_IR2),
 	.insta_IR2(insta_IR2), 
-	.instb_IR2(instb_IR2)
+	.instb_IR2(instb_IR2),
+	.rs1_IR2(rs1_IR2),
+	.rs2_IR2(rs2_IR2)
 );
 
 ALU_64_bit ALU(
-	.a(readData1_IR2),
+	.a(dataout2),
 	.b(muxOut1),
 	.ALUOp(Operation),
 	.Result(Result),
 	.zero(zero)
+);
+
+mux64_3 mux4(
+	.a(readData1_IR2),
+	.b(muxOut2),
+	.c(Result_IR3),
+	.d(forwardA),
+	.dataout2(dataout2)
+);
+
+forwarding FU(
+	.clk(clk), 
+	.RegWrite_IR3(RegWrite_IR3), 
+	.RegWrite_IR4(RegWrite_IR4),
+	.rs1_IR2(rs1_IR2),
+	.rs2_IR2(rs2_IR2), 
+	.instb_IR3(instb_IR3), 
+	.instb_IR4(instb_IR4),
+	.forwardA(fowardA), 
+	.forwardB(forwardB)
 );
 
 bgt bgt1(
@@ -127,6 +151,13 @@ bgt bgt1(
 	.b(muxOut1),
 	.funct3(funct3),
 	.g(g)
+);
+
+mux_64 mux1(
+	.a(dataout3),
+	.b(imm_data_IR2),
+	.sel(ALUSrc_IR2),
+	.dataout(muxOut1)
 );
 
 ALU_Control ALU_C(
@@ -141,11 +172,12 @@ Adder add2(
 	.out(out2)
 );
 
-mux_64 mux1(
+mux64_3 mux5(
 	.a(readData2_IR2),
-	.b(imm_data_IR2),
-	.sel(ALUSrc_IR2),
-	.dataout(muxOut1)
+	.b(muxOut2),
+	.c(Result_IR3),
+	.d(forwardB),
+	.dataout2(dataout3)
 );
 
 IR3 R3(
